@@ -625,7 +625,10 @@ function initGInput(){
   function _log(msg){_dbg.textContent=msg+' | focus='+((document.activeElement===_gi)?'_gi':'other('+document.activeElement?.tagName+')');}
 
   _gi.addEventListener('compositionstart',(e)=>{_giComposing=true;_log('compositionstart');});
-  _gi.addEventListener('compositionupdate',(e)=>{_log('compositionupdate data="'+e.data+'"');});
+  _gi.addEventListener('compositionupdate',(e)=>{
+    _log('compositionupdate data="'+e.data+'"');
+    const puzz=getPuzz(S.pid);if(puzz)refreshGame(puzz); // 미리보기 업데이트
+  });
   _gi.addEventListener('compositionend',(e)=>{
     _giComposing=false;_giSkip=true;
     _log('compositionend data="'+(e.data||'')+'" val="'+_gi.value+'"');
@@ -643,7 +646,23 @@ function initGInput(){
     setTimeout(()=>{_gi.value='';},0);
     if(m)_giChar(m[m.length-1]);
   });
-  _gi.addEventListener('keydown',(e)=>_giKey(e));
+  _gi.addEventListener('keydown',(e)=>{
+    if(_giComposing){
+      // 조합 중 Enter/Space/ArrowRight → 현재 글자 강제 확정
+      if(e.key==='Enter'||e.key===' '||e.key==='ArrowRight'||e.key==='Tab'){
+        e.preventDefault();
+        const v=_gi.value||'';
+        const m=v.match(/[가-힣]/g);
+        if(m){
+          _giComposing=false;_giSkip=true;
+          _giChar(m[m.length-1]);
+          setTimeout(()=>{_gi.value='';_gi.focus({preventScroll:true});},0);
+        }
+      }
+      return; // 다른 키는 무시
+    }
+    _giKey(e);
+  });
   // 포커스 이탈 시 게임 중이면 재포커스 (더 짧은 딜레이)
   _gi.addEventListener('blur',()=>{
     if(S.screen==='game'&&S.selCell)
@@ -760,6 +779,8 @@ function refreshGame(puzz){
   const cmap=buildCM(puzz);
   const aw=S.selWid?puzz.words.find(w=>w.wid===S.selWid):null;
   const awCs=aw?wCells(aw):[];
+  // 조합 중 글자 미리보기 (PC 한글 IME)
+  const preedit=(_giComposing&&_gi&&S.selCell)?(_gi.value.match(/[가-힣ㄱ-ㅣ]/g)||[]).join(''):'';
   document.querySelectorAll('.cw-cell[data-r]').forEach(cell=>{
     const r=+cell.dataset.r,c=+cell.dataset.c,k=`${r},${c}`;
     const isOk=puzz.words.some(w=>S.correct.has(w.wid)&&wCells(w).some(wc=>wc.r===r&&wc.c===c));
@@ -768,7 +789,14 @@ function refreshGame(puzz){
     const isAct=awCs.some(wc=>wc.r===r&&wc.c===c);
     cell.className='cw-cell '+(isOk?'ok':isHnt?'hnt':isSel?'sel':isAct?'act':'wht');
     const txt=cell.querySelector('.cw-cell-txt');
-    if(txt)txt.textContent=isOk?(cmap[k]?.ch||''):(S.cells[k]||'');
+    if(txt){
+      const isSel2=S.selCell&&S.selCell.r===r&&S.selCell.c===c;
+      if(!isOk&&isSel2&&preedit&&!S.cells[k]){
+        txt.textContent=preedit;txt.style.opacity='0.45';
+      }else{
+        txt.textContent=isOk?(cmap[k]?.ch||''):(S.cells[k]||'');txt.style.opacity='';
+      }
+    }
   });
   const box=document.getElementById('clue-box');
   if(box)box.innerHTML=aw
