@@ -617,18 +617,30 @@ function initGInput(){
   _gi.autocomplete='off';_gi.autocorrect='off';_gi.autocapitalize='off';_gi.spellcheck=false;
   document.getElementById('app').appendChild(_gi);
 
-  _gi.addEventListener('compositionstart',()=>{_giComposing=true;});
+  // ── 디버그 패널 ──
+  const _dbg=document.createElement('div');
+  _dbg.id='_dbg';
+  _dbg.style.cssText='position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font:12px monospace;padding:4px 8px;z-index:99999;pointer-events:none;white-space:pre;';
+  document.body.appendChild(_dbg);
+  function _log(msg){_dbg.textContent=msg+' | focus='+((document.activeElement===_gi)?'_gi':'other('+document.activeElement?.tagName+')');}
+
+  _gi.addEventListener('compositionstart',(e)=>{_giComposing=true;_log('compositionstart');});
+  _gi.addEventListener('compositionupdate',(e)=>{_log('compositionupdate data="'+e.data+'"');});
   _gi.addEventListener('compositionend',(e)=>{
     _giComposing=false;_giSkip=true;
-    const m=(e.data||'').match(/[가-힣]/g);
-    _gi.value='';
+    _log('compositionend data="'+(e.data||'')+'" val="'+_gi.value+'"');
+    const data=e.data||_gi.value||'';
+    const m=data.match(/[가-힣]/g);
+    // 딜레이 후 클리어 (다음 조합 시작 보호)
+    setTimeout(()=>{if(!_giComposing)_gi.value='';},50);
     if(m)_giChar(m[m.length-1]);
   });
-  _gi.addEventListener('input',()=>{
-    if(_giComposing)return;
-    if(_giSkip){_giSkip=false;_gi.value='';return;}
+  _gi.addEventListener('input',(ev)=>{
+    if(_giComposing){_log('input (composing, skip) val="'+_gi.value+'"');return;}
+    if(_giSkip){_giSkip=false;_log('input (skip flag) val="'+_gi.value+'"');setTimeout(()=>{_gi.value='';},0);return;}
+    _log('input val="'+_gi.value+'"');
     const m=(_gi.value||'').match(/[가-힣]/g);
-    _gi.value='';
+    setTimeout(()=>{_gi.value='';},0);
     if(m)_giChar(m[m.length-1]);
   });
   _gi.addEventListener('keydown',(e)=>_giKey(e));
