@@ -596,7 +596,7 @@ function startPuzz(id){
   }else{
     S.cells={};S.correct=new Set();S.hints=new Set();
   }
-  S.selCell=null;S.selWid=null;S.showComp=false;S.showReset=false;
+  S.selCell=null;S.selWid=null;S.showComp=false;S.showReset=false;S.showFullReset=false;
   S.screen='game';
   initGInput(); // 히든 인풋 초기화 (한 번만 생성됨)
   render();
@@ -886,10 +886,10 @@ function render(){
     case'shop':        c=rShopContent();break;
     case'collection':  c=rColContent();break;
   }
-  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${rBnav()}</div>${S.showComp?rCompOv():''}${S.showReset?rResetOv():''}`;
+  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${rBnav()}</div>${S.showComp?rCompOv():''}${S.showReset?rResetOv():''}${S.showFullReset?rFullResetOv():''}`;
 }
 function rNav(){
-  return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾자동저장</div></div>`;
+  return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾자동저장</div><button data-action="full-reset" style="background:none;border:none;color:#ffd600;font-size:18px;cursor:pointer;padding:4px;opacity:.7" title="전체 초기화">⚙️</button></div>`;
 }
 function rBnav(){
   const tabs=[
@@ -1029,6 +1029,19 @@ function rHintBtn(aw){
     💡 첫 글자 힌트 (💎5)
   </button>`;
 }
+function rFullResetOv(){
+  return`<div class="ov" style="z-index:300">
+    <div class="ov-box" style="text-align:center;padding:24px 20px">
+      <div style="font-size:36px;margin-bottom:8px">⚠️</div>
+      <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:6px">전체 초기화</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:20px">모든 진행상황, 보석, 컬렉션이<br>완전히 삭제됩니다. 계속할까요?</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-full" data-action="full-reset-cancel" style="background:#e2e8f0;color:#334155;flex:1">취소</button>
+        <button class="btn btn-full" data-action="full-reset-confirm" style="background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;flex:1">전체 초기화</button>
+      </div>
+    </div>
+  </div>`;
+}
 function rResetOv(){
   return`<div class="ov" style="z-index:200">
     <div class="ov-box" style="text-align:center;padding:24px 20px">
@@ -1117,6 +1130,16 @@ function _doAction(el,e){
       break;}
     case'buy-key':{
       buyKey();
+      break;}
+    case'full-reset':{
+      S.showFullReset=true;render();
+      break;}
+    case'full-reset-confirm':{
+      localStorage.removeItem(SAVE_KEY);
+      location.reload();
+      break;}
+    case'full-reset-cancel':{
+      S.showFullReset=false;render();
       break;}
     case'reset-puzz':{
       S.showReset=true;render();
