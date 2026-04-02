@@ -596,7 +596,7 @@ function startPuzz(id){
   }else{
     S.cells={};S.correct=new Set();S.hints=new Set();
   }
-  S.selCell=null;S.selWid=null;S.showComp=false;
+  S.selCell=null;S.selWid=null;S.showComp=false;S.showReset=false;
   S.screen='game';
   initGInput(); // 히든 인풋 초기화 (한 번만 생성됨)
   render();
@@ -886,7 +886,7 @@ function render(){
     case'shop':        c=rShopContent();break;
     case'collection':  c=rColContent();break;
   }
-  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${rBnav()}</div>${S.showComp?rCompOv():''}`;
+  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${rBnav()}</div>${S.showComp?rCompOv():''}${S.showReset?rResetOv():''}`;
 }
 function rNav(){
   return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾자동저장</div></div>`;
@@ -1029,6 +1029,19 @@ function rHintBtn(aw){
     💡 첫 글자 힌트 (💎5)
   </button>`;
 }
+function rResetOv(){
+  return`<div class="ov" style="z-index:200">
+    <div class="ov-box" style="text-align:center;padding:24px 20px">
+      <div style="font-size:32px;margin-bottom:8px">🔄</div>
+      <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:6px">퀴즈 초기화</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:20px">지금까지 입력한 내용이<br>모두 지워져요. 괜찮아요?</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-full" data-action="reset-cancel" style="background:#e2e8f0;color:#334155;flex:1">취소</button>
+        <button class="btn btn-main btn-full" data-action="reset-confirm" style="flex:1">초기화</button>
+      </div>
+    </div>
+  </div>`;
+}
 function rCompOv(){
   return`<div class="ov" data-action="comp-bg-close">
     <div class="ov-box">
@@ -1106,14 +1119,17 @@ function _doAction(el,e){
       buyKey();
       break;}
     case'reset-puzz':{
-      if(confirm('이 퀴즈를 초기화할까요?')){
-        S.cells={};S.correct=new Set();S.hints=new Set();
-        S.done.delete(S.pid);
-        if(S.puzzData)delete S.puzzData[S.pid];
-        S.selCell=null;S.selWid=null;
-        saveState();
-        startPuzz(S.pid);
-      }
+      S.showReset=true;render();
+      break;}
+    case'reset-confirm':{
+      S.cells={};S.correct=new Set();S.hints=new Set();
+      S.done.delete(S.pid);
+      if(S.puzzData)delete S.puzzData[S.pid];
+      S.selCell=null;S.selWid=null;S.showReset=false;
+      saveState();startPuzz(S.pid);
+      break;}
+    case'reset-cancel':{
+      S.showReset=false;render();
       break;}
     case'hint':{
       if(!el.disabled)hintWord();
