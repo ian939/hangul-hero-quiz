@@ -613,7 +613,7 @@ function initGInput(){
   _gi=document.createElement('input');
   _gi.type='text';
   // iOS 줌 방지: font-size 16px 필수
-  _gi.style.cssText="position:fixed;top:0;left:-9999px;width:40px;height:40px;font-size:16px;font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;opacity:0;border:none;outline:none;background:transparent;z-index:999;";
+  _gi.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;font-size:16px;font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;opacity:0.01;border:none;outline:none;background:transparent;z-index:9999;caret-color:transparent;color:transparent;";
   _gi.autocomplete='off';_gi.autocorrect='off';_gi.autocapitalize='off';_gi.spellcheck=false;
   document.getElementById('app').appendChild(_gi);
 
@@ -648,6 +648,17 @@ function initGInput(){
 function focusGI(){
   initGInput();
   _gi.value='';
+  // 선택 셀 위에 _gi 오버레이 (IME 팝업 위치 보장)
+  if(S.selCell){
+    const cellEl=document.querySelector('.cw-cell[data-r="'+S.selCell.r+'"][data-c="'+S.selCell.c+'"]');
+    if(cellEl){
+      const rect=cellEl.getBoundingClientRect();
+      _gi.style.top=rect.top+'px';
+      _gi.style.left=rect.left+'px';
+      _gi.style.width=rect.width+'px';
+      _gi.style.height=rect.height+'px';
+    }
+  }
   _gi.focus({preventScroll:true});
 }
 
