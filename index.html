@@ -995,6 +995,7 @@ function rGameContent(){
         <div class="lv-pill" style="background:${lv.bg};color:${lv.color}">${lv.name}</div>
         <div class="stitle">${puzz.title} <span style="font-size:13px;color:#9ca3af;font-weight:400">${doneN}/${puzz.words.length}</span></div>
       </div>
+      <button class="bbtn" data-action="reset-puzz" title="초기화" style="margin-left:auto;font-size:16px">🔄</button>
     </div>
     <div class="game-wrap">
       <div class="cw-outer">${grid}</div>
@@ -1103,6 +1104,16 @@ function _doAction(el,e){
       break;}
     case'buy-key':{
       buyKey();
+      break;}
+    case'reset-puzz':{
+      if(confirm('이 퀴즈를 초기화할까요?')){
+        S.cells={};S.correct=new Set();S.hints=new Set();
+        S.done.delete(S.pid);
+        if(S.puzzData)delete S.puzzData[S.pid];
+        S.selCell=null;S.selWid=null;
+        saveState();
+        startPuzz(S.pid);
+      }
       break;}
     case'hint':{
       if(!el.disabled)hintWord();
