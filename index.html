@@ -632,10 +632,16 @@ function initGInput(){
     if(m)_giChar(m[m.length-1]);
   });
   _gi.addEventListener('keydown',(e)=>_giKey(e));
-  // 포커스 이탈 시 게임 중이면 재포커스
+  // 포커스 이탈 시 게임 중이면 재포커스 (더 짧은 딜레이)
   _gi.addEventListener('blur',()=>{
     if(S.screen==='game'&&S.selCell)
-      setTimeout(()=>{if(S.screen==='game')_gi.focus({preventScroll:true});},80);
+      setTimeout(()=>{if(S.screen==='game'&&_gi)_gi.focus({preventScroll:true});},30);
+  });
+  // PC 폴백: document keydown → _gi가 포커스 없어도 키 입력 처리
+  document.addEventListener('keydown',function(e){
+    if(S.screen!=='game'||!S.selCell)return;
+    if(document.activeElement===_gi)return; // 이미 _gi가 처리
+    _giKey(e);
   });
 }
 
@@ -1066,12 +1072,17 @@ function _doAction(el,e){
 }
 function initTouchHandler(){
   const app=document.getElementById('app');
-  // touch-action:manipulation(CSS)으로 300ms 딜레이 제거
-  // click 단독 사용 → _gi.focus() iOS 키보드 정상 동작
+  // PC: 셀/단어 클릭 시 mousedown 기본동작 차단 → _gi 포커스 유지
+  app.addEventListener('mousedown',function(e){
+    const el=e.target.closest('[data-action="cell"],[data-action="sel-word"]');
+    if(el&&S.screen==="game"){e.preventDefault();}
+  });
   app.addEventListener('click',function(e){
     const el=e.target.closest('[data-action]');
     if(!el)return;
     _doAction(el,e);
+    // 게임 화면 클릭 후 _gi 포커스 보장 (PC/iPad 공통)
+    if(S.screen==="game"&&_gi)setTimeout(()=>_gi.focus({preventScroll:true}),0);
   });
 }
 render();
