@@ -600,8 +600,8 @@ function startPuzz(id){
   S.screen='game';
   initGInput(); // 히든 인풋 초기화 (한 번만 생성됨)
   render();
-  // 렌더 후 히든 인풋 포커스
-  setTimeout(()=>focusGI(),100);
+  // 렌더 후 히든 인풋 포커스 (게임 시작은 터치 이벤트 체인이므로 동기 호출)
+  focusGI();
 }
 // ── 글로벌 히든 인풋 (IME 완벽 처리) ──────────────────
 // 셀마다 input 쓰지 않고, 히든 input 하나로 모든 입력 처리
@@ -613,25 +613,17 @@ function initGInput(){
   _gi=document.createElement('input');
   _gi.type='text';
   // iOS 줌 방지: font-size 16px 필수
-  _gi.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;font-size:16px;font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;opacity:0.01;border:none;outline:none;background:transparent;z-index:9999;caret-color:transparent;color:transparent;";
+  _gi.style.cssText="position:absolute;top:-9999px;left:0;width:44px;height:44px;font-size:16px;font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;opacity:0.01;border:none;outline:none;background:transparent;z-index:9999;caret-color:transparent;color:transparent;";
   _gi.autocomplete='off';_gi.autocorrect='off';_gi.autocapitalize='off';_gi.spellcheck=false;
+  _gi.setAttribute('inputmode','text');_gi.setAttribute('enterkeyhint','next');
   document.getElementById('app').appendChild(_gi);
 
-  // ── 디버그 패널 ──
-  const _dbg=document.createElement('div');
-  _dbg.id='_dbg';
-  _dbg.style.cssText='position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font:12px monospace;padding:4px 8px;z-index:99999;pointer-events:none;white-space:pre;';
-  document.body.appendChild(_dbg);
-  function _log(msg){_dbg.textContent=msg+' | focus='+((document.activeElement===_gi)?'_gi':'other('+document.activeElement?.tagName+')');}
-
-  _gi.addEventListener('compositionstart',(e)=>{_giComposing=true;_log('compositionstart');});
+  _gi.addEventListener('compositionstart',(e)=>{_giComposing=true;});
   _gi.addEventListener('compositionupdate',(e)=>{
-    _log('compositionupdate data="'+e.data+'"');
     const puzz=getPuzz(S.pid);if(puzz)refreshGame(puzz); // 미리보기 업데이트
   });
   _gi.addEventListener('compositionend',(e)=>{
     _giComposing=false;_giSkip=true;
-    _log('compositionend data="'+(e.data||'')+'" val="'+_gi.value+'"');
     const data=e.data||_gi.value||'';
     const m=data.match(/[가-힣]/g);
     // 딜레이 후 클리어 (다음 조합 시작 보호)
@@ -639,9 +631,8 @@ function initGInput(){
     if(m)_giChar(m[m.length-1]);
   });
   _gi.addEventListener('input',(ev)=>{
-    if(_giComposing){_log('input (composing, skip) val="'+_gi.value+'"');return;}
-    if(_giSkip){_giSkip=false;_log('input (skip flag) val="'+_gi.value+'"');setTimeout(()=>{_gi.value='';},0);return;}
-    _log('input val="'+_gi.value+'"');
+    if(_giComposing)return;
+    if(_giSkip){_giSkip=false;setTimeout(()=>{_gi.value='';},0);return;}
     const m=(_gi.value||'').match(/[가-힣]/g);
     setTimeout(()=>{_gi.value='';},0);
     if(m)_giChar(m[m.length-1]);
@@ -663,11 +654,8 @@ function initGInput(){
     }
     _giKey(e);
   });
-  // 포커스 이탈 시 게임 중이면 재포커스 (더 짧은 딜레이)
-  _gi.addEventListener('blur',()=>{
-    if(S.screen==='game'&&S.selCell)
-      setTimeout(()=>{if(S.screen==='game'&&_gi)_gi.focus({preventScroll:true});},30);
-  });
+  // 포커스 이탈 시 재포커스 하지 않음 — iPad에서 키보드 전쟁 방지
+  // 셀 터치 시 touchend 핸들러에서 동기적으로 focus() 호출
   // PC 폴백: document keydown → _gi가 포커스 없어도 키 입력 처리
   document.addEventListener('keydown',function(e){
     if(S.screen!=='game'||!S.selCell)return;
@@ -684,10 +672,11 @@ function focusGI(){
     const cellEl=document.querySelector('.cw-cell[data-r="'+S.selCell.r+'"][data-c="'+S.selCell.c+'"]');
     if(cellEl){
       const rect=cellEl.getBoundingClientRect();
+      _gi.style.position='fixed';
       _gi.style.top=rect.top+'px';
       _gi.style.left=rect.left+'px';
-      _gi.style.width=rect.width+'px';
-      _gi.style.height=rect.height+'px';
+      _gi.style.width=Math.max(rect.width,44)+'px';
+      _gi.style.height=Math.max(rect.height,44)+'px';
     }
   }
   _gi.focus({preventScroll:true});
@@ -1173,17 +1162,29 @@ function _doAction(el,e){
 }
 function initTouchHandler(){
   const app=document.getElementById('app');
-  // PC: 셀/단어 클릭 시 mousedown 기본동작 차단 → _gi 포커스 유지
+  let _touchHandled=false;
+  // iPad/모바일: touchend에서 동기적으로 focus() → 키보드 활성화 보장
+  app.addEventListener('touchend',function(e){
+    const el=e.target.closest('[data-action]');
+    if(!el)return;
+    _touchHandled=true;
+    e.preventDefault(); // click 이벤트 중복 방지
+    _doAction(el,e);
+    // 동기적 focus — iOS에서 키보드가 뜨려면 터치 이벤트 스택 안에서 호출 필수
+    if(S.screen==="game"&&_gi)_gi.focus({preventScroll:true});
+  });
+  // PC: mousedown 기본동작 차단 → _gi 포커스 유지
   app.addEventListener('mousedown',function(e){
     const el=e.target.closest('[data-action="cell"],[data-action="sel-word"]');
     if(el&&S.screen==="game"){e.preventDefault();}
   });
+  // PC 폴백: click (터치 미지원 기기)
   app.addEventListener('click',function(e){
+    if(_touchHandled){_touchHandled=false;return;}
     const el=e.target.closest('[data-action]');
     if(!el)return;
     _doAction(el,e);
-    // 게임 화면 클릭 후 _gi 포커스 보장 (PC/iPad 공통)
-    if(S.screen==="game"&&_gi)setTimeout(()=>_gi.focus({preventScroll:true}),0);
+    if(S.screen==="game"&&_gi)_gi.focus({preventScroll:true});
   });
 }
 render();
