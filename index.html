@@ -138,17 +138,12 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif
 @keyframes cfall{0%{opacity:1;transform:translateY(-10px) rotate(0)}100%{opacity:0;transform:translateY(105vh) rotate(900deg)}}
 .toast{position:absolute;top:62px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.9);color:#fff;padding:9px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:500;white-space:nowrap;pointer-events:none;animation:tin .3s ease}
 @keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}.ov-balloon{display:flex;justify-content:center;gap:8px;font-size:40px;margin-bottom:8px;animation:pop .5s ease both}.ov-star{display:inline-block;animation:spin 1s linear infinite;font-size:28px}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.ov-box{background:linear-gradient(135deg,#fff9c4,#fff3e0);border-radius:24px;padding:28px 28px 32px;text-align:center;max-width:300px;width:100%;animation:pop .45s cubic-bezier(.175,.885,.32,1.275) both;border:2px solid #ffd600}.hero-banner{display:flex;justify-content:center;padding:24px 0 12px;margin-top:8px}.hero-img{max-width:85%;max-height:280px;object-fit:contain;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 8px 20px rgba(0,0,0,.25))}
-.kb-wrap{background:#d1d5db;padding:6px 4px 8px;border-top:1.5px solid #bbb;flex-shrink:0;z-index:100;user-select:none;-webkit-user-select:none}
-.kb-row{display:flex;justify-content:center;gap:4px;margin-bottom:4px}
-.kb-row:last-child{margin-bottom:0}
-.kb-key{display:flex;align-items:center;justify-content:center;min-width:32px;height:42px;border-radius:8px;background:#fff;border:none;box-shadow:0 1px 3px rgba(0,0,0,.25);font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;font-size:18px;font-weight:700;color:#1e293b;cursor:pointer;flex:1;max-width:48px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.kb-key:active{background:#c7d2fe;transform:scale(.92)}
-.kb-key.kb-shift{background:#adb5bd;color:#fff;font-size:14px;max-width:52px}
-.kb-key.kb-shift.on{background:#e53935;color:#fff}
-.kb-key.kb-bs{background:#adb5bd;color:#fff;font-size:18px;max-width:56px}
-.kb-key.kb-next{background:#e53935;color:#fff;font-size:13px;font-weight:900;max-width:64px}
-.kb-key.kb-space{max-width:160px;font-size:12px;color:#9ca3af}
-@media(min-width:500px){.kb-key{height:46px;font-size:20px;min-width:36px}}
+.wc-wrap{background:#fff;border-top:2px solid #e2e8f0;padding:10px 12px 12px;flex-shrink:0;z-index:100}
+.wc-title{font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;text-align:center}
+.wc-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.wc-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;border:2px solid #e2e8f0;background:#f8fafc;font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;font-size:17px;font-weight:700;color:#1e293b;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:all .15s;min-width:72px}
+.wc-btn:active{transform:scale(.92);background:#e0e7ff;border-color:#818cf8}
+@media(max-width:400px){.wc-btn{padding:8px 14px;font-size:15px;min-width:64px}}
 </style>
 </head>
 <body>
@@ -609,254 +604,123 @@ function startPuzz(id){
   }
   S.selCell=null;S.selWid=null;S.showComp=false;
   S.screen='game';
-  kbReset();
+  _wcCache={};
   render();
 }
-// ── 커스텀 한글 키보드 (iOS/iPad 네이티브 키보드 의존성 제거) ──────
-const CHO='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
-const JUNG='ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
-const JONG='\0ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ';
-// 복합 중성 조합: 기본중성+기본중성 → 복합중성
-const JUNG_COMBO={'ㅗㅏ':'ㅘ','ㅗㅐ':'ㅙ','ㅗㅣ':'ㅚ','ㅜㅓ':'ㅝ','ㅜㅔ':'ㅞ','ㅜㅣ':'ㅟ','ㅡㅣ':'ㅢ'};
-// 복합 종성 조합
-const JONG_COMBO={'ㄱㅅ':'ㄳ','ㄴㅈ':'ㄵ','ㄴㅎ':'ㄶ','ㄹㄱ':'ㄺ','ㄹㅁ':'ㄻ','ㄹㅂ':'ㄼ','ㄹㅅ':'ㄽ','ㄹㅌ':'ㄾ','ㄹㅍ':'ㄿ','ㄹㅎ':'ㅀ','ㅂㅅ':'ㅄ','ㅅㅅ':'ㅆ'};
-// 복합 종성 분해 (종성 → [앞종성, 뒤초성])
-const JONG_SPLIT={'ㄳ':['ㄱ','ㅅ'],'ㄵ':['ㄴ','ㅈ'],'ㄶ':['ㄴ','ㅎ'],'ㄺ':['ㄹ','ㄱ'],'ㄻ':['ㄹ','ㅁ'],'ㄼ':['ㄹ','ㅂ'],'ㄽ':['ㄹ','ㅅ'],'ㄾ':['ㄹ','ㅌ'],'ㄿ':['ㄹ','ㅍ'],'ㅀ':['ㄹ','ㅎ'],'ㅄ':['ㅂ','ㅅ'],'ㅆ':['ㅅ','ㅅ']};
-function isConsonant(c){return 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.includes(c);}
-function isVowel(c){return 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'.includes(c);}
-function composeSyllable(cho,jung,jong){
-  const ci=CHO.indexOf(cho),ji=JUNG.indexOf(jung),ki=jong?JONG.indexOf(jong):0;
-  if(ci<0||ji<0)return null;
-  return String.fromCharCode(0xAC00+ci*21*28+ji*28+ki);
-}
-function decomposeSyllable(ch){
-  const code=ch.charCodeAt(0);
-  if(code<0xAC00||code>0xD7A3)return null;
-  const idx=code-0xAC00;
-  return{cho:CHO[Math.floor(idx/(21*28))],jung:JUNG[Math.floor((idx%588)/28)],jong:idx%28===0?null:JONG[idx%28]};
-}
+// ── 단어 선택 시스템 (키보드 대신 단어 보기에서 정답 선택) ──────
+// 길이별 한국어 단어 뱅크 (오답 보기용)
+const WBANK={
+2:['바다','하늘','구름','엄마','아빠','동생','언니','오빠','우유','사탕','손톱','발목','눈물','다리','허리','무릎','딸기','수박','참외','포도',
+   '감자','젤리','쿠키','라면','김밥','피자','우산','모자','양말','신발','장갑','가방','지갑','안경','시계','인형','로봇','자석','풍선','색칠',
+   '그림','노래','놀이','공원','학교','병원','마트','은행','토끼','하마','기린','펭귄','사슴','여우','거미','매미','참새','까치','바람','태양',
+   '달빛','별빛','꽃잎','잔디','열매','이슬','안녕','감사','미안','사랑','행복','용기','희망','약속','비밀','축구','야구','농구','수영','점프',
+   '그네','시소','지구','우주','화성','태풍','번개','안개','서리','아침','점심','저녁','새벽','오후','내일','어제','오늘','방학','주말','의자',
+   '책상','침대','베개','이불','거울','창문','계단','지붕','마당','연필','가위','공책','필통','칠판','치마','바지','조끼','반지','과일','소풍'],
+3:['무지개','고양이','강아지','햄스터','앵무새','코끼리','두더지','자전거','비행기','잠수함',
+   '소방차','경찰차','구급차','케이크','초콜릿','거북이','다람쥐','물고기','개구리','도마뱀',
+   '달팽이','잠자리','사마귀','도서관','미술관','놀이터','수영장','운동장','동물원','식물원',
+   '수족관','박물관','천문대','복숭아','오렌지','바나나','컴퓨터','냉장고','세탁기','청소기',
+   '선풍기','가습기','제습기','유치원','문구점','장난감','미나리','호박꽃','해바라','고구마',
+   '감나무','눈사람','새우깡','짜장면','김치찌','떡볶이','잔치국','삼겹살','생선회','삼각형',
+   '사각형','원모양','크레파','색연필','도화지','스케치','수채화','지우개','볼펜심','연습장'],
+4:['민주주의','대한민국','무궁화꽃','태극기','올림픽','컴퓨터실','도서관에','자동판매기','비밀번호','운동화끈',
+   '해바라기꽃','아이스크림','초콜릿맛','생일파티','크리스마스','할로윈밤','동물원에','수영장에서','놀이공원','롤러코스터']
+};
 
-// 조합 상태: {cho, jung, jong} - 현재 조합 중인 자모
-let _kb={cho:null,jung:null,jong:null,shifted:false};
-
-function kbReset(){_kb={cho:null,jung:null,jong:null,shifted:false};}
-
-// 현재 조합 상태를 문자로 반환 (미리보기용)
-function kbPreview(){
-  if(!_kb.cho&&!_kb.jung)return '';
-  if(_kb.cho&&!_kb.jung)return _kb.cho;
-  if(!_kb.cho&&_kb.jung)return _kb.jung;
-  return composeSyllable(_kb.cho,_kb.jung,_kb.jong)||'';
-}
-
-// 조합 확정: 현재 조합을 완성 글자로 셀에 넣고 다음 칸으로
-function kbCommit(){
-  const ch=kbPreview();
-  kbReset();
-  if(ch)_giChar(ch);
+// 퍼즐 내 같은 길이 단어들 수집 (다른 퍼즐 포함)
+function getDistractors(ans,len){
+  const ansStr=ans.join('');
+  // 같은 퍼즐 내 다른 정답 단어 수집
+  const puzzWords=new Set();
+  PZS.forEach(p=>p.words.forEach(w=>{
+    if(w.ans.length===len)puzzWords.add(w.ans.join(''));
+  }));
+  puzzWords.delete(ansStr);
+  // 뱅크에서 같은 길이 단어 가져오기
+  const bank=(WBANK[len]||[]).filter(w=>w.length===len&&w!==ansStr);
+  // 퍼즐 단어 + 뱅크 합치기
+  const all=[...puzzWords,...bank];
+  // 셔플 후 9개 선택
+  for(let i=all.length-1;i>0;i--){const j=Math.random()*i|0;[all[i],all[j]]=[all[j],all[i]];}
+  return all.slice(0,9);
 }
 
-// 자모 입력 처리 (핵심 로직)
-function kbInput(jamo){
-  if(isConsonant(jamo)){
-    if(!_kb.cho&&!_kb.jung){
-      // 초성 시작
-      _kb.cho=jamo;
-    }else if(_kb.cho&&!_kb.jung){
-      // 초성만 있는 상태에서 또 자음 → 이전 확정 후 새 초성
-      _giChar(_kb.cho);
-      kbReset();_kb.cho=jamo;
-    }else if(_kb.cho&&_kb.jung&&!_kb.jong){
-      // 초+중 → 종성 추가 시도
-      if(JONG.includes(jamo)){
-        _kb.jong=jamo;
-      }else{
-        // 종성 불가능한 자음 → 현재 확정, 새 초성
-        kbCommit();_kb.cho=jamo;
-      }
-    }else if(_kb.cho&&_kb.jung&&_kb.jong){
-      // 초+중+종 → 복합종성 시도
-      const combo=JONG_COMBO[_kb.jong+jamo];
-      if(combo){
-        _kb.jong=combo;
-      }else{
-        // 복합 안됨 → 현재 확정, 새 초성
-        kbCommit();_kb.cho=jamo;
-      }
-    }
-  }else if(isVowel(jamo)){
-    if(!_kb.cho&&!_kb.jung){
-      // 모음만 단독
-      _kb.jung=jamo;
-    }else if(_kb.cho&&!_kb.jung){
-      // 초성+모음 → 중성
-      _kb.jung=jamo;
-    }else if(_kb.cho&&_kb.jung&&!_kb.jong){
-      // 복합 중성 시도
-      const combo=JUNG_COMBO[_kb.jung+jamo];
-      if(combo){
-        _kb.jung=combo;
-      }else{
-        // 복합 안됨 → 현재 확정, 새 모음
-        kbCommit();_kb.jung=jamo;
-      }
-    }else if(!_kb.cho&&_kb.jung){
-      // 모음+모음 → 복합 시도
-      const combo=JUNG_COMBO[_kb.jung+jamo];
-      if(combo){
-        _kb.jung=combo;
-      }else{
-        kbCommit();_kb.jung=jamo;
-      }
-    }else if(_kb.cho&&_kb.jung&&_kb.jong){
-      // 종성 있는데 모음 → 종성을 떼어서 새 음절의 초성으로
-      const split=JONG_SPLIT[_kb.jong];
-      if(split){
-        // 복합 종성 분리
-        _kb.jong=split[0];
-        const prev=composeSyllable(_kb.cho,_kb.jung,_kb.jong);
-        if(prev)_giChar(prev);
-        kbReset();_kb.cho=split[1];_kb.jung=jamo;
-      }else{
-        const prevJong=_kb.jong;
-        _kb.jong=null;
-        const prev=composeSyllable(_kb.cho,_kb.jung,null);
-        if(prev)_giChar(prev);
-        kbReset();_kb.cho=prevJong;_kb.jung=jamo;
-      }
-    }
-  }
-  // 미리보기 업데이트
-  kbUpdatePreview();
+// 선택지 생성 (정답 1개 + 오답 9개, 랜덤 섞기)
+function makeChoices(word){
+  const ans=word.ans;
+  const ansStr=ans.join('');
+  const distractors=getDistractors(ans,ans.length);
+  const choices=[ansStr,...distractors];
+  // 셔플
+  for(let i=choices.length-1;i>0;i--){const j=Math.random()*i|0;[choices[i],choices[j]]=[choices[j],choices[i]];}
+  return choices;
 }
 
-function kbBackspace(){
-  if(_kb.jong){
-    const split=JONG_SPLIT[_kb.jong];
-    if(split){_kb.jong=split[0];}
-    else{_kb.jong=null;}
-  }else if(_kb.jung){
-    // 복합 중성 → 첫 모음만 남기기
-    const entries=Object.entries(JUNG_COMBO);
-    const found=entries.find(([k,v])=>v===_kb.jung);
-    if(found){_kb.jung=found[0][0];}
-    else{_kb.jung=null;}
-  }else if(_kb.cho){
-    _kb.cho=null;
-  }else{
-    // 조합 없음 → 이전 셀의 글자 삭제
-    const puzz=getPuzz(S.pid);if(!puzz||!S.selCell)return;
-    _giKey({key:'Backspace',preventDefault(){}});
-    return;
-  }
-  kbUpdatePreview();
+// 단어 선택지 캐시 (같은 단어 재선택 시 보기 유지)
+let _wcCache={};
+
+function getWordChoices(wid,word){
+  if(!_wcCache[wid])_wcCache[wid]=makeChoices(word);
+  return _wcCache[wid];
 }
 
-function kbUpdatePreview(){
-  const puzz=getPuzz(S.pid);
-  if(!puzz||!S.selCell)return;
-  const {r,c}=S.selCell;
-  const k=`${r},${c}`;
-  const preview=kbPreview();
-  // 미리보기를 셀에 직접 표시
-  const txt=document.querySelector(`.cw-cell[data-r="${r}"][data-c="${c}"] .cw-cell-txt`);
-  if(txt){
-    if(preview){txt.textContent=preview;txt.style.opacity='0.5';}
-    else{txt.textContent=S.cells[k]||'';txt.style.opacity='';}
-  }
-}
-
-function focusGI(){
-  // 커스텀 키보드이므로 포커스 불필요 — 셀 선택만 처리
-}
-
-function _giChar(ch){
-  const puzz=getPuzz(S.pid);if(!puzz||!S.selCell)return;
-  const {r,c}=S.selCell;
-  S.cells[`${r},${c}`]=ch;
-  puzz.words.forEach(w=>{
-    if(!S.correct.has(w.wid)&&wCells(w).some(wc=>wc.r===r&&wc.c===c)&&wOk(w)){
-      S.correct.add(w.wid);S.coins+=10;saveState();
-    }
-  });
-  if(puzz.words.every(w=>S.correct.has(w.wid))){
-    S.done.add(puzz.id);S.coins+=50;
-    S.earnedCoins=puzz.words.length*10+50;saveState();
-    S.showComp=true;render();confetti();return;
-  }
-  // 다음 칸 자동 이동
-  const word=puzz.words.find(w=>w.wid===S.selWid);
-  if(word){
-    const cs=wCells(word),idx=cs.findIndex(wc=>wc.r===r&&wc.c===c);
-    if(idx<cs.length-1)S.selCell={r:cs[idx+1].r,c:cs[idx+1].c};
-  }
-  refreshGame(puzz);
-}
-
-function _giKey(e){
-  const puzz=getPuzz(S.pid);if(!puzz||!S.selCell)return;
-  const {r,c}=S.selCell;
-  if(e.key==='Backspace'){
-    e.preventDefault();
-    const k=`${r},${c}`;
-    if(S.cells[k]){
-      S.cells[k]='';
-      puzz.words.forEach(w=>{
-        if(S.correct.has(w.wid)&&wCells(w).some(wc=>wc.r===r&&wc.c===c)){
-          S.correct.delete(w.wid);S.coins=Math.max(0,S.coins-10);saveState();
-        }
-      });
-      refreshGame(puzz);updateBadges();
-    }else{
-      const word=puzz.words.find(w=>w.wid===S.selWid);
-      if(word){
-        const cs=wCells(word),idx=cs.findIndex(wc=>wc.r===r&&wc.c===c);
-        if(idx>0)S.selCell={r:cs[idx-1].r,c:cs[idx-1].c};
-      }
-      refreshGame(puzz);
-    }
-  }else if(e.key==='Tab'){
-    e.preventDefault();
+// 단어 선택 처리
+function pickWord(wid,chosen){
+  const puzz=getPuzz(S.pid);if(!puzz)return;
+  const word=puzz.words.find(w=>w.wid===wid);
+  if(!word)return;
+  const ansStr=word.ans.join('');
+  if(chosen===ansStr){
+    // 정답!
+    const cells=wCells(word);
+    cells.forEach((wc,i)=>{S.cells[`${wc.r},${wc.c}`]=word.ans[i];});
+    S.correct.add(wid);S.coins+=10;saveState();
+    delete _wcCache[wid];
+    // 다음 미완성 단어로 이동
     const rem=puzz.words.filter(w=>!S.correct.has(w.wid));
-    if(rem.length){
-      const ci=rem.findIndex(w=>w.wid===S.selWid);
-      const nw=rem[(ci+1)%rem.length];
-      S.selWid=nw.wid;S.selCell={r:wCells(nw)[0].r,c:wCells(nw)[0].c};
-      refreshGame(puzz);
+    if(puzz.words.every(w=>S.correct.has(w.wid))){
+      S.done.add(puzz.id);S.coins+=50;
+      S.earnedCoins=puzz.words.length*10+50;saveState();
+      S.showComp=true;S.selCell=null;S.selWid=null;
+      render();confetti();return;
     }
+    if(rem.length){
+      const nw=rem[0];
+      S.selWid=nw.wid;S.selCell={r:wCells(nw)[0].r,c:wCells(nw)[0].c};
+    }else{S.selCell=null;S.selWid=null;}
+    render();
+  }else{
+    // 오답 — 틀린 보기 잠깐 흔들기
+    toast('다시 생각해봐요! 🤔');
   }
 }
+
 
 function onCellClick(puzz,r,c){
   const av=wordsAt(puzz,r,c).filter(w=>!S.correct.has(w.wid));
   if(!av.length)return;
-  // 셀 변경 시 조합 확정
-  if(!(S.selCell?.r===r&&S.selCell?.c===c)&&kbPreview()){kbCommit();}
   if(S.selCell?.r===r&&S.selCell?.c===c){
-    // 같은 셀 재클릭 → 가로↔세로 전환
     const idx=av.findIndex(w=>w.wid===S.selWid);
     S.selWid=av[(idx+1)%av.length].wid;
   }else{
     S.selCell={r,c};
     S.selWid=(av.find(w=>w.dir==='a')||av[0]).wid;
   }
-  refreshGame(puzz);
+  render();
 }
 
 function selWord(wid){
   const puzz=getPuzz(S.pid);if(!puzz)return;
   const w=puzz.words.find(x=>x.wid===wid);
   if(!w||S.correct.has(wid))return;
-  if(kbPreview())kbCommit();
   S.selWid=wid;S.selCell={r:wCells(w)[0].r,c:wCells(w)[0].c};
-  refreshGame(puzz);
+  render();
 }
 
 function refreshGame(puzz){
   const cmap=buildCM(puzz);
   const aw=S.selWid?puzz.words.find(w=>w.wid===S.selWid):null;
   const awCs=aw?wCells(aw):[];
-  const _kbPv=kbPreview();
   document.querySelectorAll('.cw-cell[data-r]').forEach(cell=>{
     const r=+cell.dataset.r,c=+cell.dataset.c,k=`${r},${c}`;
     const isOk=puzz.words.some(w=>S.correct.has(w.wid)&&wCells(w).some(wc=>wc.r===r&&wc.c===c));
@@ -865,13 +729,7 @@ function refreshGame(puzz){
     const isAct=awCs.some(wc=>wc.r===r&&wc.c===c);
     cell.className='cw-cell '+(isOk?'ok':isHnt?'hnt':isSel?'sel':isAct?'act':'wht');
     const txt=cell.querySelector('.cw-cell-txt');
-    if(txt){
-      if(!isOk&&isSel&&_kbPv&&!S.cells[k]){
-        txt.textContent=_kbPv;txt.style.opacity='0.5';
-      }else{
-        txt.textContent=isOk?(cmap[k]?.ch||''):(S.cells[k]||'');txt.style.opacity='';
-      }
-    }
+    if(txt){txt.textContent=isOk?(cmap[k]?.ch||''):(S.cells[k]||'');txt.style.opacity='';}
   });
   const box=document.getElementById('clue-box');
   if(box)box.innerHTML=aw
@@ -961,8 +819,8 @@ function render(){
     case'shop':        c=rShopContent();break;
     case'collection':  c=rColContent();break;
   }
-  const kbHtml=(S.screen==='game'&&S.selCell)?rKeyboard():'';
-  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${kbHtml}${rBnav()}</div>${S.showComp?rCompOv():''}`;
+  const wcHtml=(S.screen==='game'&&S.selWid)?rWordChoices():'';
+  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${wcHtml}${rBnav()}</div>${S.showComp?rCompOv():''}`;
 }
 function rNav(){
   return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾자동저장</div></div>`;
@@ -1091,33 +949,15 @@ function rGameContent(){
     <div style="height:10px"></div>
   </div>`;
 }
-function rKeyboard(){
-  const sh=_kb.shifted;
-  const r1=sh?['ㅃ','ㅉ','ㄸ','ㄲ','ㅆ']:['ㅂ','ㅈ','ㄷ','ㄱ','ㅅ'];
-  const r1v=['ㅛ','ㅕ','ㅑ','ㅐ','ㅔ'];
-  const r2=['ㅁ','ㄴ','ㅇ','ㄹ','ㅎ'];
-  const r2v=['ㅗ','ㅓ','ㅏ','ㅣ'];
-  const r3=['ㅋ','ㅌ','ㅊ','ㅍ'];
-  const r3v=['ㅠ','ㅜ','ㅡ'];
-  const mkk=(j)=>`<button class="kb-key" data-kb="${j}">${j}</button>`;
-  return`<div class="kb-wrap">
-    <div class="kb-row">${r1.map(mkk).join('')}${r1v.map(mkk).join('')}</div>
-    <div class="kb-row">${r2.map(mkk).join('')}${r2v.map(mkk).join('')}</div>
-    <div class="kb-row">
-      <button class="kb-key kb-shift${sh?' on':''}" data-kb="SHIFT">⇧</button>
-      ${r3.map(mkk).join('')}${r3v.map(mkk).join('')}
-      <button class="kb-key kb-bs" data-kb="BS">⌫</button>
-    </div>
-    <div class="kb-row">
-      <button class="kb-key kb-next" data-kb="NEXT">다음▶</button>
-      <button class="kb-key kb-space" data-kb="COMMIT">확정</button>
-      <button class="kb-key kb-next" data-kb="TAB">단어↻</button>
-    </div>
+function rWordChoices(){
+  const puzz=getPuzz(S.pid);if(!puzz||!S.selWid)return'';
+  const w=puzz.words.find(x=>x.wid===S.selWid);
+  if(!w||S.correct.has(w.wid))return'';
+  const choices=getWordChoices(w.wid,w);
+  return`<div class="wc-wrap">
+    <div class="wc-title">${w.dir==='a'?'➡ 가로':'⬇ 세로'} ${w.num} · ${w.clue}</div>
+    <div class="wc-grid">${choices.map(c=>`<button class="wc-btn" data-action="pick-word" data-wid="${w.wid}" data-word="${c}">${c}</button>`).join('')}</div>
   </div>`;
-}
-function refreshKb(){
-  const old=document.querySelector('.kb-wrap');
-  if(old){old.outerHTML=rKeyboard();}
 }
 function rHintBtn(aw){
   if(!aw)return'';
@@ -1215,6 +1055,7 @@ function _doAction(el,e){
         S.done.delete(S.pid);
         if(S.puzzData)delete S.puzzData[S.pid];
         S.selCell=null;S.selWid=null;
+        _wcCache={};
         saveState();
         startPuzz(S.pid);
       }
@@ -1232,6 +1073,9 @@ function _doAction(el,e){
       if(e.target.closest('.ov-box'))break;
       S.showComp=false;S.screen='puzzleSelect';render();
       break;}
+    case'pick-word':{
+      pickWord(el.dataset.wid,el.dataset.word);
+      break;}
     default:return false;
   }
   return true;
@@ -1239,19 +1083,7 @@ function _doAction(el,e){
 function initTouchHandler(){
   const app=document.getElementById('app');
   let _touchHandled=false;
-  // 커스텀 키보드 터치 처리
-  app.addEventListener('touchstart',function(e){
-    const kb=e.target.closest('[data-kb]');
-    if(kb){e.preventDefault();} // 키보드 버튼 터치 시 스크롤 방지
-  },{passive:false});
   app.addEventListener('touchend',function(e){
-    // 키보드 버튼
-    const kb=e.target.closest('[data-kb]');
-    if(kb){
-      e.preventDefault();_touchHandled=true;
-      handleKbKey(kb.dataset.kb);
-      return;
-    }
     const el=e.target.closest('[data-action]');
     if(!el)return;
     _touchHandled=true;
@@ -1261,64 +1093,10 @@ function initTouchHandler(){
   // PC 폴백: click
   app.addEventListener('click',function(e){
     if(_touchHandled){_touchHandled=false;return;}
-    const kb=e.target.closest('[data-kb]');
-    if(kb){handleKbKey(kb.dataset.kb);return;}
     const el=e.target.closest('[data-action]');
     if(!el)return;
     _doAction(el,e);
   });
-  // PC: 물리 키보드 지원
-  document.addEventListener('keydown',function(e){
-    if(S.screen!=='game'||!S.selCell)return;
-    if(e.key==='Backspace'){e.preventDefault();kbBackspace();return;}
-    if(e.key==='Tab'){e.preventDefault();handleKbKey('TAB');return;}
-    if(e.key==='Enter'||e.key===' '){e.preventDefault();handleKbKey('COMMIT');return;}
-    // 한글 자모 직접 입력 (물리 키보드에서 한글 모드일 때)
-    const ch=e.key;
-    if(ch.length===1&&(isConsonant(ch)||isVowel(ch))){e.preventDefault();kbInput(ch);return;}
-    // 완성된 한글이 입력된 경우 (OS IME)
-    if(ch.length===1&&ch>='가'&&ch<='힣'){e.preventDefault();if(kbPreview())kbCommit();_giChar(ch);return;}
-  });
-}
-function handleKbKey(key){
-  if(!S.selCell){
-    // 셀이 선택 안 되어 있으면 첫 번째 미완성 단어의 첫 칸 선택
-    const puzz=getPuzz(S.pid);if(!puzz)return;
-    const rem=puzz.words.filter(w=>!S.correct.has(w.wid));
-    if(rem.length){const w=rem[0];S.selWid=w.wid;S.selCell={r:wCells(w)[0].r,c:wCells(w)[0].c};refreshGame(puzz);}
-    return;
-  }
-  if(key==='SHIFT'){_kb.shifted=!_kb.shifted;refreshKb();return;}
-  if(key==='BS'){kbBackspace();return;}
-  if(key==='COMMIT'){if(kbPreview())kbCommit();return;}
-  if(key==='NEXT'){
-    if(kbPreview())kbCommit();
-    // 현재 단어의 다음 빈 칸으로
-    const puzz=getPuzz(S.pid);if(!puzz)return;
-    const word=puzz.words.find(w=>w.wid===S.selWid);
-    if(word){
-      const cs=wCells(word);
-      const {r,c}=S.selCell;
-      const idx=cs.findIndex(wc=>wc.r===r&&wc.c===c);
-      if(idx<cs.length-1){S.selCell={r:cs[idx+1].r,c:cs[idx+1].c};}
-    }
-    refreshGame(puzz);return;
-  }
-  if(key==='TAB'){
-    if(kbPreview())kbCommit();
-    const puzz=getPuzz(S.pid);if(!puzz)return;
-    const rem=puzz.words.filter(w=>!S.correct.has(w.wid));
-    if(rem.length){
-      const ci=rem.findIndex(w=>w.wid===S.selWid);
-      const nw=rem[(ci+1)%rem.length];
-      S.selWid=nw.wid;S.selCell={r:wCells(nw)[0].r,c:wCells(nw)[0].c};
-      refreshGame(puzz);
-    }
-    return;
-  }
-  // 자모 입력
-  kbInput(key);
-  if(_kb.shifted)_kb.shifted=false;
 }
 render();
 initTouchHandler();
