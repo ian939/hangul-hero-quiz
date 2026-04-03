@@ -138,6 +138,17 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif
 @keyframes cfall{0%{opacity:1;transform:translateY(-10px) rotate(0)}100%{opacity:0;transform:translateY(105vh) rotate(900deg)}}
 .toast{position:absolute;top:62px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.9);color:#fff;padding:9px 20px;border-radius:20px;font-size:12px;font-weight:700;z-index:500;white-space:nowrap;pointer-events:none;animation:tin .3s ease}
 @keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}.ov-balloon{display:flex;justify-content:center;gap:8px;font-size:40px;margin-bottom:8px;animation:pop .5s ease both}.ov-star{display:inline-block;animation:spin 1s linear infinite;font-size:28px}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.ov-box{background:linear-gradient(135deg,#fff9c4,#fff3e0);border-radius:24px;padding:28px 28px 32px;text-align:center;max-width:300px;width:100%;animation:pop .45s cubic-bezier(.175,.885,.32,1.275) both;border:2px solid #ffd600}.hero-banner{display:flex;justify-content:center;padding:24px 0 12px;margin-top:8px}.hero-img{max-width:85%;max-height:280px;object-fit:contain;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 8px 20px rgba(0,0,0,.25))}
+.kb-wrap{background:#d1d5db;padding:6px 4px 8px;border-top:1.5px solid #bbb;flex-shrink:0;z-index:100;user-select:none;-webkit-user-select:none}
+.kb-row{display:flex;justify-content:center;gap:4px;margin-bottom:4px}
+.kb-row:last-child{margin-bottom:0}
+.kb-key{display:flex;align-items:center;justify-content:center;min-width:32px;height:42px;border-radius:8px;background:#fff;border:none;box-shadow:0 1px 3px rgba(0,0,0,.25);font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;font-size:18px;font-weight:700;color:#1e293b;cursor:pointer;flex:1;max-width:48px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.kb-key:active{background:#c7d2fe;transform:scale(.92)}
+.kb-key.kb-shift{background:#adb5bd;color:#fff;font-size:14px;max-width:52px}
+.kb-key.kb-shift.on{background:#e53935;color:#fff}
+.kb-key.kb-bs{background:#adb5bd;color:#fff;font-size:18px;max-width:56px}
+.kb-key.kb-next{background:#e53935;color:#fff;font-size:13px;font-weight:900;max-width:64px}
+.kb-key.kb-space{max-width:160px;font-size:12px;color:#9ca3af}
+@media(min-width:500px){.kb-key{height:46px;font-size:20px;min-width:36px}}
 </style>
 </head>
 <body>
@@ -596,90 +607,167 @@ function startPuzz(id){
   }else{
     S.cells={};S.correct=new Set();S.hints=new Set();
   }
-  S.selCell=null;S.selWid=null;S.showComp=false;S.showReset=false;S.showFullReset=false;
+  S.selCell=null;S.selWid=null;S.showComp=false;
   S.screen='game';
-  initGInput(); // 히든 인풋 초기화 (한 번만 생성됨)
+  kbReset();
   render();
-  // 렌더 후 히든 인풋 포커스 (게임 시작은 터치 이벤트 체인이므로 동기 호출)
-  focusGI();
 }
-// ── 글로벌 히든 인풋 (IME 완벽 처리) ──────────────────
-// 셀마다 input 쓰지 않고, 히든 input 하나로 모든 입력 처리
-// → 한글 IME 밀림 현상 근본 해결
-let _gi=null, _giComposing=false, _giSkip=false;
+// ── 커스텀 한글 키보드 (iOS/iPad 네이티브 키보드 의존성 제거) ──────
+const CHO='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const JUNG='ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
+const JONG='\0ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ';
+// 복합 중성 조합: 기본중성+기본중성 → 복합중성
+const JUNG_COMBO={'ㅗㅏ':'ㅘ','ㅗㅐ':'ㅙ','ㅗㅣ':'ㅚ','ㅜㅓ':'ㅝ','ㅜㅔ':'ㅞ','ㅜㅣ':'ㅟ','ㅡㅣ':'ㅢ'};
+// 복합 종성 조합
+const JONG_COMBO={'ㄱㅅ':'ㄳ','ㄴㅈ':'ㄵ','ㄴㅎ':'ㄶ','ㄹㄱ':'ㄺ','ㄹㅁ':'ㄻ','ㄹㅂ':'ㄼ','ㄹㅅ':'ㄽ','ㄹㅌ':'ㄾ','ㄹㅍ':'ㄿ','ㄹㅎ':'ㅀ','ㅂㅅ':'ㅄ','ㅅㅅ':'ㅆ'};
+// 복합 종성 분해 (종성 → [앞종성, 뒤초성])
+const JONG_SPLIT={'ㄳ':['ㄱ','ㅅ'],'ㄵ':['ㄴ','ㅈ'],'ㄶ':['ㄴ','ㅎ'],'ㄺ':['ㄹ','ㄱ'],'ㄻ':['ㄹ','ㅁ'],'ㄼ':['ㄹ','ㅂ'],'ㄽ':['ㄹ','ㅅ'],'ㄾ':['ㄹ','ㅌ'],'ㄿ':['ㄹ','ㅍ'],'ㅀ':['ㄹ','ㅎ'],'ㅄ':['ㅂ','ㅅ'],'ㅆ':['ㅅ','ㅅ']};
+function isConsonant(c){return 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.includes(c);}
+function isVowel(c){return 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'.includes(c);}
+function composeSyllable(cho,jung,jong){
+  const ci=CHO.indexOf(cho),ji=JUNG.indexOf(jung),ki=jong?JONG.indexOf(jong):0;
+  if(ci<0||ji<0)return null;
+  return String.fromCharCode(0xAC00+ci*21*28+ji*28+ki);
+}
+function decomposeSyllable(ch){
+  const code=ch.charCodeAt(0);
+  if(code<0xAC00||code>0xD7A3)return null;
+  const idx=code-0xAC00;
+  return{cho:CHO[Math.floor(idx/(21*28))],jung:JUNG[Math.floor((idx%588)/28)],jong:idx%28===0?null:JONG[idx%28]};
+}
 
-function initGInput(){
-  if(_gi)return;
-  _gi=document.createElement('input');
-  _gi.type='text';
-  // iOS 줌 방지: font-size 16px 필수
-  _gi.style.cssText="position:absolute;top:-9999px;left:0;width:44px;height:44px;font-size:16px;font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;opacity:0.01;border:none;outline:none;background:transparent;z-index:9999;caret-color:transparent;color:transparent;";
-  _gi.autocomplete='off';_gi.autocorrect='off';_gi.autocapitalize='off';_gi.spellcheck=false;
-  _gi.setAttribute('inputmode','text');_gi.setAttribute('enterkeyhint','next');
-  document.getElementById('app').appendChild(_gi);
+// 조합 상태: {cho, jung, jong} - 현재 조합 중인 자모
+let _kb={cho:null,jung:null,jong:null,shifted:false};
 
-  _gi.addEventListener('compositionstart',(e)=>{_giComposing=true;});
-  _gi.addEventListener('compositionupdate',(e)=>{
-    const puzz=getPuzz(S.pid);if(puzz)refreshGame(puzz); // 미리보기 업데이트
-  });
-  _gi.addEventListener('compositionend',(e)=>{
-    _giComposing=false;_giSkip=true;
-    const data=e.data||_gi.value||'';
-    const m=data.match(/[가-힣]/g);
-    // 딜레이 후 클리어 (다음 조합 시작 보호)
-    setTimeout(()=>{if(!_giComposing)_gi.value='';},50);
-    if(m)_giChar(m[m.length-1]);
-  });
-  _gi.addEventListener('input',(ev)=>{
-    if(_giComposing)return;
-    if(_giSkip){_giSkip=false;setTimeout(()=>{_gi.value='';},0);return;}
-    const m=(_gi.value||'').match(/[가-힣]/g);
-    setTimeout(()=>{_gi.value='';},0);
-    if(m)_giChar(m[m.length-1]);
-  });
-  _gi.addEventListener('keydown',(e)=>{
-    if(_giComposing){
-      // 조합 중 Enter/Space/ArrowRight → 현재 글자 강제 확정
-      if(e.key==='Enter'||e.key===' '||e.key==='ArrowRight'||e.key==='Tab'){
-        e.preventDefault();
-        const v=_gi.value||'';
-        const m=v.match(/[가-힣]/g);
-        if(m){
-          _giComposing=false;_giSkip=true;
-          _giChar(m[m.length-1]);
-          setTimeout(()=>{_gi.value='';_gi.focus({preventScroll:true});},0);
-        }
+function kbReset(){_kb={cho:null,jung:null,jong:null,shifted:false};}
+
+// 현재 조합 상태를 문자로 반환 (미리보기용)
+function kbPreview(){
+  if(!_kb.cho&&!_kb.jung)return '';
+  if(_kb.cho&&!_kb.jung)return _kb.cho;
+  if(!_kb.cho&&_kb.jung)return _kb.jung;
+  return composeSyllable(_kb.cho,_kb.jung,_kb.jong)||'';
+}
+
+// 조합 확정: 현재 조합을 완성 글자로 셀에 넣고 다음 칸으로
+function kbCommit(){
+  const ch=kbPreview();
+  kbReset();
+  if(ch)_giChar(ch);
+}
+
+// 자모 입력 처리 (핵심 로직)
+function kbInput(jamo){
+  if(isConsonant(jamo)){
+    if(!_kb.cho&&!_kb.jung){
+      // 초성 시작
+      _kb.cho=jamo;
+    }else if(_kb.cho&&!_kb.jung){
+      // 초성만 있는 상태에서 또 자음 → 이전 확정 후 새 초성
+      _giChar(_kb.cho);
+      kbReset();_kb.cho=jamo;
+    }else if(_kb.cho&&_kb.jung&&!_kb.jong){
+      // 초+중 → 종성 추가 시도
+      if(JONG.includes(jamo)){
+        _kb.jong=jamo;
+      }else{
+        // 종성 불가능한 자음 → 현재 확정, 새 초성
+        kbCommit();_kb.cho=jamo;
       }
-      return; // 다른 키는 무시
+    }else if(_kb.cho&&_kb.jung&&_kb.jong){
+      // 초+중+종 → 복합종성 시도
+      const combo=JONG_COMBO[_kb.jong+jamo];
+      if(combo){
+        _kb.jong=combo;
+      }else{
+        // 복합 안됨 → 현재 확정, 새 초성
+        kbCommit();_kb.cho=jamo;
+      }
     }
-    _giKey(e);
-  });
-  // 포커스 이탈 시 재포커스 하지 않음 — iPad에서 키보드 전쟁 방지
-  // 셀 터치 시 touchend 핸들러에서 동기적으로 focus() 호출
-  // PC 폴백: document keydown → _gi가 포커스 없어도 키 입력 처리
-  document.addEventListener('keydown',function(e){
-    if(S.screen!=='game'||!S.selCell)return;
-    if(document.activeElement===_gi)return; // 이미 _gi가 처리
-    _giKey(e);
-  });
+  }else if(isVowel(jamo)){
+    if(!_kb.cho&&!_kb.jung){
+      // 모음만 단독
+      _kb.jung=jamo;
+    }else if(_kb.cho&&!_kb.jung){
+      // 초성+모음 → 중성
+      _kb.jung=jamo;
+    }else if(_kb.cho&&_kb.jung&&!_kb.jong){
+      // 복합 중성 시도
+      const combo=JUNG_COMBO[_kb.jung+jamo];
+      if(combo){
+        _kb.jung=combo;
+      }else{
+        // 복합 안됨 → 현재 확정, 새 모음
+        kbCommit();_kb.jung=jamo;
+      }
+    }else if(!_kb.cho&&_kb.jung){
+      // 모음+모음 → 복합 시도
+      const combo=JUNG_COMBO[_kb.jung+jamo];
+      if(combo){
+        _kb.jung=combo;
+      }else{
+        kbCommit();_kb.jung=jamo;
+      }
+    }else if(_kb.cho&&_kb.jung&&_kb.jong){
+      // 종성 있는데 모음 → 종성을 떼어서 새 음절의 초성으로
+      const split=JONG_SPLIT[_kb.jong];
+      if(split){
+        // 복합 종성 분리
+        _kb.jong=split[0];
+        const prev=composeSyllable(_kb.cho,_kb.jung,_kb.jong);
+        if(prev)_giChar(prev);
+        kbReset();_kb.cho=split[1];_kb.jung=jamo;
+      }else{
+        const prevJong=_kb.jong;
+        _kb.jong=null;
+        const prev=composeSyllable(_kb.cho,_kb.jung,null);
+        if(prev)_giChar(prev);
+        kbReset();_kb.cho=prevJong;_kb.jung=jamo;
+      }
+    }
+  }
+  // 미리보기 업데이트
+  kbUpdatePreview();
+}
+
+function kbBackspace(){
+  if(_kb.jong){
+    const split=JONG_SPLIT[_kb.jong];
+    if(split){_kb.jong=split[0];}
+    else{_kb.jong=null;}
+  }else if(_kb.jung){
+    // 복합 중성 → 첫 모음만 남기기
+    const entries=Object.entries(JUNG_COMBO);
+    const found=entries.find(([k,v])=>v===_kb.jung);
+    if(found){_kb.jung=found[0][0];}
+    else{_kb.jung=null;}
+  }else if(_kb.cho){
+    _kb.cho=null;
+  }else{
+    // 조합 없음 → 이전 셀의 글자 삭제
+    const puzz=getPuzz(S.pid);if(!puzz||!S.selCell)return;
+    _giKey({key:'Backspace',preventDefault(){}});
+    return;
+  }
+  kbUpdatePreview();
+}
+
+function kbUpdatePreview(){
+  const puzz=getPuzz(S.pid);
+  if(!puzz||!S.selCell)return;
+  const {r,c}=S.selCell;
+  const k=`${r},${c}`;
+  const preview=kbPreview();
+  // 미리보기를 셀에 직접 표시
+  const txt=document.querySelector(`.cw-cell[data-r="${r}"][data-c="${c}"] .cw-cell-txt`);
+  if(txt){
+    if(preview){txt.textContent=preview;txt.style.opacity='0.5';}
+    else{txt.textContent=S.cells[k]||'';txt.style.opacity='';}
+  }
 }
 
 function focusGI(){
-  initGInput();
-  _gi.value='';
-  // 선택 셀 위에 _gi 오버레이 (IME 팝업 위치 보장)
-  if(S.selCell){
-    const cellEl=document.querySelector('.cw-cell[data-r="'+S.selCell.r+'"][data-c="'+S.selCell.c+'"]');
-    if(cellEl){
-      const rect=cellEl.getBoundingClientRect();
-      _gi.style.position='fixed';
-      _gi.style.top=rect.top+'px';
-      _gi.style.left=rect.left+'px';
-      _gi.style.width=Math.max(rect.width,44)+'px';
-      _gi.style.height=Math.max(rect.height,44)+'px';
-    }
-  }
-  _gi.focus({preventScroll:true});
+  // 커스텀 키보드이므로 포커스 불필요 — 셀 선택만 처리
 }
 
 function _giChar(ch){
@@ -707,7 +795,6 @@ function _giChar(ch){
 
 function _giKey(e){
   const puzz=getPuzz(S.pid);if(!puzz||!S.selCell)return;
-  if(_giComposing)return; // IME 조합 중 특수키 무시
   const {r,c}=S.selCell;
   if(e.key==='Backspace'){
     e.preventDefault();
@@ -743,6 +830,8 @@ function _giKey(e){
 function onCellClick(puzz,r,c){
   const av=wordsAt(puzz,r,c).filter(w=>!S.correct.has(w.wid));
   if(!av.length)return;
+  // 셀 변경 시 조합 확정
+  if(!(S.selCell?.r===r&&S.selCell?.c===c)&&kbPreview()){kbCommit();}
   if(S.selCell?.r===r&&S.selCell?.c===c){
     // 같은 셀 재클릭 → 가로↔세로 전환
     const idx=av.findIndex(w=>w.wid===S.selWid);
@@ -751,7 +840,6 @@ function onCellClick(puzz,r,c){
     S.selCell={r,c};
     S.selWid=(av.find(w=>w.dir==='a')||av[0]).wid;
   }
-  focusGI();
   refreshGame(puzz);
 }
 
@@ -759,8 +847,8 @@ function selWord(wid){
   const puzz=getPuzz(S.pid);if(!puzz)return;
   const w=puzz.words.find(x=>x.wid===wid);
   if(!w||S.correct.has(wid))return;
+  if(kbPreview())kbCommit();
   S.selWid=wid;S.selCell={r:wCells(w)[0].r,c:wCells(w)[0].c};
-  focusGI();
   refreshGame(puzz);
 }
 
@@ -768,8 +856,7 @@ function refreshGame(puzz){
   const cmap=buildCM(puzz);
   const aw=S.selWid?puzz.words.find(w=>w.wid===S.selWid):null;
   const awCs=aw?wCells(aw):[];
-  // 조합 중 글자 미리보기 (PC 한글 IME)
-  const preedit=(_giComposing&&_gi&&S.selCell)?(_gi.value.match(/[가-힣ㄱ-ㅣ]/g)||[]).join(''):'';
+  const _kbPv=kbPreview();
   document.querySelectorAll('.cw-cell[data-r]').forEach(cell=>{
     const r=+cell.dataset.r,c=+cell.dataset.c,k=`${r},${c}`;
     const isOk=puzz.words.some(w=>S.correct.has(w.wid)&&wCells(w).some(wc=>wc.r===r&&wc.c===c));
@@ -779,9 +866,8 @@ function refreshGame(puzz){
     cell.className='cw-cell '+(isOk?'ok':isHnt?'hnt':isSel?'sel':isAct?'act':'wht');
     const txt=cell.querySelector('.cw-cell-txt');
     if(txt){
-      const isSel2=S.selCell&&S.selCell.r===r&&S.selCell.c===c;
-      if(!isOk&&isSel2&&preedit&&!S.cells[k]){
-        txt.textContent=preedit;txt.style.opacity='0.45';
+      if(!isOk&&isSel&&_kbPv&&!S.cells[k]){
+        txt.textContent=_kbPv;txt.style.opacity='0.5';
       }else{
         txt.textContent=isOk?(cmap[k]?.ch||''):(S.cells[k]||'');txt.style.opacity='';
       }
@@ -875,10 +961,11 @@ function render(){
     case'shop':        c=rShopContent();break;
     case'collection':  c=rColContent();break;
   }
-  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${rBnav()}</div>${S.showComp?rCompOv():''}${S.showReset?rResetOv():''}${S.showFullReset?rFullResetOv():''}`;
+  const kbHtml=(S.screen==='game'&&S.selCell)?rKeyboard():'';
+  main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${kbHtml}${rBnav()}</div>${S.showComp?rCompOv():''}`;
 }
 function rNav(){
-  return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="margin-left:auto;display:flex;align-items:center;gap:8px"><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾자동저장</div><button data-action="full-reset" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,214,0,0.4);border-radius:8px;color:#ffd600;font-size:12px;font-weight:700;cursor:pointer;padding:4px 8px;white-space:nowrap">초기화</button></div></div>`;
+  return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾자동저장</div></div>`;
 }
 function rBnav(){
   const tabs=[
@@ -1001,8 +1088,36 @@ function rGameContent(){
         </div>
       </div>
     </div>
-    <div style="height:20px"></div>
+    <div style="height:10px"></div>
   </div>`;
+}
+function rKeyboard(){
+  const sh=_kb.shifted;
+  const r1=sh?['ㅃ','ㅉ','ㄸ','ㄲ','ㅆ']:['ㅂ','ㅈ','ㄷ','ㄱ','ㅅ'];
+  const r1v=['ㅛ','ㅕ','ㅑ','ㅐ','ㅔ'];
+  const r2=['ㅁ','ㄴ','ㅇ','ㄹ','ㅎ'];
+  const r2v=['ㅗ','ㅓ','ㅏ','ㅣ'];
+  const r3=['ㅋ','ㅌ','ㅊ','ㅍ'];
+  const r3v=['ㅠ','ㅜ','ㅡ'];
+  const mkk=(j)=>`<button class="kb-key" data-kb="${j}">${j}</button>`;
+  return`<div class="kb-wrap">
+    <div class="kb-row">${r1.map(mkk).join('')}${r1v.map(mkk).join('')}</div>
+    <div class="kb-row">${r2.map(mkk).join('')}${r2v.map(mkk).join('')}</div>
+    <div class="kb-row">
+      <button class="kb-key kb-shift${sh?' on':''}" data-kb="SHIFT">⇧</button>
+      ${r3.map(mkk).join('')}${r3v.map(mkk).join('')}
+      <button class="kb-key kb-bs" data-kb="BS">⌫</button>
+    </div>
+    <div class="kb-row">
+      <button class="kb-key kb-next" data-kb="NEXT">다음▶</button>
+      <button class="kb-key kb-space" data-kb="COMMIT">확정</button>
+      <button class="kb-key kb-next" data-kb="TAB">단어↻</button>
+    </div>
+  </div>`;
+}
+function refreshKb(){
+  const old=document.querySelector('.kb-wrap');
+  if(old){old.outerHTML=rKeyboard();}
 }
 function rHintBtn(aw){
   if(!aw)return'';
@@ -1017,32 +1132,6 @@ function rHintBtn(aw){
   return`<button class="hint-btn" data-action="hint"${canHint?'':' disabled'}>
     💡 첫 글자 힌트 (💎5)
   </button>`;
-}
-function rFullResetOv(){
-  return`<div class="ov" style="z-index:300">
-    <div class="ov-box" style="text-align:center;padding:24px 20px">
-      <div style="font-size:36px;margin-bottom:8px">⚠️</div>
-      <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:6px">전체 초기화</div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:20px">모든 진행상황, 보석, 컬렉션이<br>완전히 삭제됩니다. 계속할까요?</div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-full" data-action="full-reset-cancel" style="background:#e2e8f0;color:#334155;flex:1">취소</button>
-        <button class="btn btn-full" data-action="full-reset-confirm" style="background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;flex:1">전체 초기화</button>
-      </div>
-    </div>
-  </div>`;
-}
-function rResetOv(){
-  return`<div class="ov" style="z-index:200">
-    <div class="ov-box" style="text-align:center;padding:24px 20px">
-      <div style="font-size:32px;margin-bottom:8px">🔄</div>
-      <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:6px">퀴즈 초기화</div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:20px">지금까지 입력한 내용이<br>모두 지워져요. 괜찮아요?</div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-full" data-action="reset-cancel" style="background:#e2e8f0;color:#334155;flex:1">취소</button>
-        <button class="btn btn-main btn-full" data-action="reset-confirm" style="flex:1">초기화</button>
-      </div>
-    </div>
-  </div>`;
 }
 function rCompOv(){
   return`<div class="ov" data-action="comp-bg-close">
@@ -1120,28 +1209,15 @@ function _doAction(el,e){
     case'buy-key':{
       buyKey();
       break;}
-    case'full-reset':{
-      S.showFullReset=true;render();
-      break;}
-    case'full-reset-confirm':{
-      localStorage.removeItem(SAVE_KEY);
-      location.reload();
-      break;}
-    case'full-reset-cancel':{
-      S.showFullReset=false;render();
-      break;}
     case'reset-puzz':{
-      S.showReset=true;render();
-      break;}
-    case'reset-confirm':{
-      S.cells={};S.correct=new Set();S.hints=new Set();
-      S.done.delete(S.pid);
-      if(S.puzzData)delete S.puzzData[S.pid];
-      S.selCell=null;S.selWid=null;S.showReset=false;
-      saveState();startPuzz(S.pid);
-      break;}
-    case'reset-cancel':{
-      S.showReset=false;render();
+      if(confirm('이 퀴즈를 초기화할까요?')){
+        S.cells={};S.correct=new Set();S.hints=new Set();
+        S.done.delete(S.pid);
+        if(S.puzzData)delete S.puzzData[S.pid];
+        S.selCell=null;S.selWid=null;
+        saveState();
+        startPuzz(S.pid);
+      }
       break;}
     case'hint':{
       if(!el.disabled)hintWord();
@@ -1163,29 +1239,86 @@ function _doAction(el,e){
 function initTouchHandler(){
   const app=document.getElementById('app');
   let _touchHandled=false;
-  // iPad/모바일: touchend에서 동기적으로 focus() → 키보드 활성화 보장
+  // 커스텀 키보드 터치 처리
+  app.addEventListener('touchstart',function(e){
+    const kb=e.target.closest('[data-kb]');
+    if(kb){e.preventDefault();} // 키보드 버튼 터치 시 스크롤 방지
+  },{passive:false});
   app.addEventListener('touchend',function(e){
+    // 키보드 버튼
+    const kb=e.target.closest('[data-kb]');
+    if(kb){
+      e.preventDefault();_touchHandled=true;
+      handleKbKey(kb.dataset.kb);
+      return;
+    }
     const el=e.target.closest('[data-action]');
     if(!el)return;
     _touchHandled=true;
-    e.preventDefault(); // click 이벤트 중복 방지
+    e.preventDefault();
     _doAction(el,e);
-    // 동기적 focus — iOS에서 키보드가 뜨려면 터치 이벤트 스택 안에서 호출 필수
-    if(S.screen==="game"&&_gi)_gi.focus({preventScroll:true});
   });
-  // PC: mousedown 기본동작 차단 → _gi 포커스 유지
-  app.addEventListener('mousedown',function(e){
-    const el=e.target.closest('[data-action="cell"],[data-action="sel-word"]');
-    if(el&&S.screen==="game"){e.preventDefault();}
-  });
-  // PC 폴백: click (터치 미지원 기기)
+  // PC 폴백: click
   app.addEventListener('click',function(e){
     if(_touchHandled){_touchHandled=false;return;}
+    const kb=e.target.closest('[data-kb]');
+    if(kb){handleKbKey(kb.dataset.kb);return;}
     const el=e.target.closest('[data-action]');
     if(!el)return;
     _doAction(el,e);
-    if(S.screen==="game"&&_gi)_gi.focus({preventScroll:true});
   });
+  // PC: 물리 키보드 지원
+  document.addEventListener('keydown',function(e){
+    if(S.screen!=='game'||!S.selCell)return;
+    if(e.key==='Backspace'){e.preventDefault();kbBackspace();return;}
+    if(e.key==='Tab'){e.preventDefault();handleKbKey('TAB');return;}
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();handleKbKey('COMMIT');return;}
+    // 한글 자모 직접 입력 (물리 키보드에서 한글 모드일 때)
+    const ch=e.key;
+    if(ch.length===1&&(isConsonant(ch)||isVowel(ch))){e.preventDefault();kbInput(ch);return;}
+    // 완성된 한글이 입력된 경우 (OS IME)
+    if(ch.length===1&&ch>='가'&&ch<='힣'){e.preventDefault();if(kbPreview())kbCommit();_giChar(ch);return;}
+  });
+}
+function handleKbKey(key){
+  if(!S.selCell){
+    // 셀이 선택 안 되어 있으면 첫 번째 미완성 단어의 첫 칸 선택
+    const puzz=getPuzz(S.pid);if(!puzz)return;
+    const rem=puzz.words.filter(w=>!S.correct.has(w.wid));
+    if(rem.length){const w=rem[0];S.selWid=w.wid;S.selCell={r:wCells(w)[0].r,c:wCells(w)[0].c};refreshGame(puzz);}
+    return;
+  }
+  if(key==='SHIFT'){_kb.shifted=!_kb.shifted;refreshKb();return;}
+  if(key==='BS'){kbBackspace();return;}
+  if(key==='COMMIT'){if(kbPreview())kbCommit();return;}
+  if(key==='NEXT'){
+    if(kbPreview())kbCommit();
+    // 현재 단어의 다음 빈 칸으로
+    const puzz=getPuzz(S.pid);if(!puzz)return;
+    const word=puzz.words.find(w=>w.wid===S.selWid);
+    if(word){
+      const cs=wCells(word);
+      const {r,c}=S.selCell;
+      const idx=cs.findIndex(wc=>wc.r===r&&wc.c===c);
+      if(idx<cs.length-1){S.selCell={r:cs[idx+1].r,c:cs[idx+1].c};}
+    }
+    refreshGame(puzz);return;
+  }
+  if(key==='TAB'){
+    if(kbPreview())kbCommit();
+    const puzz=getPuzz(S.pid);if(!puzz)return;
+    const rem=puzz.words.filter(w=>!S.correct.has(w.wid));
+    if(rem.length){
+      const ci=rem.findIndex(w=>w.wid===S.selWid);
+      const nw=rem[(ci+1)%rem.length];
+      S.selWid=nw.wid;S.selCell={r:wCells(nw)[0].r,c:wCells(nw)[0].c};
+      refreshGame(puzz);
+    }
+    return;
+  }
+  // 자모 입력
+  kbInput(key);
+  if(_kb.shifted)_kb.shifted=false;
 }
 render();
 initTouchHandler();
