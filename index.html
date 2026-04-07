@@ -1061,8 +1061,12 @@ function render(){
   const skHtml=(S.screen==='game')?rSkillBar():'';
   const wcHtml=(S.screen==='game'&&S.selWid)?rWordChoices():'';
   main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${skHtml}${wcHtml}${rBnav()}</div>${S.showComp?rCompOv():''}`;
-  // 화면 전환 시 스크롤 초기화 (하얀 화면 방지)
+  // 화면 전환 시 스크롤 초기화 (하얀 화면 방지 — iPad Safari 대응)
+  window.scrollTo(0,0);
+  document.body.scrollTop=0;
+  document.documentElement.scrollTop=0;
   const sc=main.querySelector('.scroll');if(sc)sc.scrollTop=0;
+  const app=document.getElementById('app');if(app)app.scrollTop=0;
 }
 function rNav(){
   const allDone=COLS.every(col=>S.unlocked[col.id]?.size===9);
