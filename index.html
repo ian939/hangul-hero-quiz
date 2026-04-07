@@ -715,6 +715,8 @@ function saveState(){
       },
       hints:[...S.hints],
       puzzData:S.puzzData||{},
+      rank:S.rank||0, keyPrice:S.keyPrice||40,
+      bank:S.bank||0, bankTime:S.bankTime||0,
     }));
   }catch(e){}
 }
@@ -732,6 +734,8 @@ function loadState(){
     });
     S.hints=new Set(d.hints||[]);
     S.puzzData=d.puzzData||{};
+    S.rank=d.rank||0;S.keyPrice=d.keyPrice||40;
+    S.bank=d.bank||0;S.bankTime=d.bankTime||0;
     S._hasSave=true;
   }catch(e){}
 }
@@ -746,6 +750,8 @@ const S={
   hints:new Set(), // 힌트 사용한 wid 목록
   puzzData:{},
   skillUsed:{}, cheonjiActive:false,
+  rank:0, keyPrice:40,
+  bank:0, bankTime:0, // 저금 시스템
 };
 loadState(); // 앱 시작 시 저장 데이터 불러오기
 // 시작 후 저장 데이터 로드 알림 (render 이후 실행)
@@ -955,8 +961,9 @@ function updateBadges(){
   if(bc)bc.textContent=`💎 ${S.coins}`;if(bk)bk.textContent=`🔑 ${S.keys}`;
 }
 function buyKey(){
-  if(S.coins<40){toast('보석이 부족해요 😢');return;}
-  S.coins-=40;S.keys+=1;saveState();render();
+  const price=S.keyPrice||40;
+  if(S.coins<price){toast('보석이 부족해요 😢');return;}
+  S.coins-=price;S.keys+=1;saveState();render();
 }
 function hintWord(){
   const puzz=getPuzz(S.pid);if(!puzz||!S.selWid)return;
@@ -1037,9 +1044,70 @@ function render(){
   const skHtml=(S.screen==='game')?rSkillBar():'';
   const wcHtml=(S.screen==='game'&&S.selWid)?rWordChoices():'';
   main.innerHTML=`<div class="layout">${rNav()}<div class="scroll">${c}</div>${skHtml}${wcHtml}${rBnav()}</div>${S.showComp?rCompOv():''}`;
+  // 화면 전환 시 스크롤 초기화 (하얀 화면 방지)
+  const sc=main.querySelector('.scroll');if(sc)sc.scrollTop=0;
 }
 function rNav(){
-  return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾자동저장</div></div>`;
+  const allDone=COLS.every(col=>S.unlocked[col.id]?.size===9);
+  const canRank=allDone&&S.rank<5;
+  const rankStars='★'.repeat(S.rank)+'☆'.repeat(5-S.rank);
+  return`<div class="nav"><div class="nav-logo">⚔️ 한글용사 아이야</div><div class="badges"><div class="badge bc">💎 ${S.coins}</div><div class="badge bk">🔑 ${S.keys}</div></div><div style="display:flex;align-items:center;gap:6px"><div style="font-size:10px;color:#ffd600;font-weight:700;opacity:.8">💾저장</div><button class="badge ${canRank?'bc':'bk'}" data-action="rank-up" style="border:none;cursor:pointer;font-size:10px;font-weight:900;${canRank?'animation:blink 1s infinite':'opacity:.5'}">${canRank?'🏆승급!':'🏆'+S.rank+'단계'}</button><div style="font-size:9px;color:#ffd600;letter-spacing:1px">${rankStars}</div></div></div>`;
+}
+// ── 저금 시스템 ──────────────────────────────────────
+function calcBankInterest(){
+  if(!S.bank||!S.bankTime)return 0;
+  const hours=(Date.now()-S.bankTime)/3600000; // 경과 시간(시)
+  if(hours<=0)return 0;
+  // 복리: 원금 × (1.03^시간) - 원금
+  const total=S.bank*Math.pow(1.03,Math.floor(hours));
+  return Math.round(total)-S.bank;
+}
+function bankDeposit(){
+  if(S.coins<=0){toast('보석이 없어요!');return;}
+  const amt=prompt(`저금할 보석 수를 입력하세요\n(보유: 💎${S.coins})`,String(Math.min(S.coins,100)));
+  if(!amt)return;
+  const n=Math.min(parseInt(amt)||0,S.coins);
+  if(n<=0)return;
+  // 저금 전 이자 정산
+  const interest=calcBankInterest();
+  S.bank=S.bank+interest+n;
+  S.coins-=n;
+  S.bankTime=Date.now();
+  saveState();render();
+  toast(`💎${n} 저금 완료! 🏦`);
+}
+function bankWithdraw(){
+  const interest=calcBankInterest();
+  const total=S.bank+interest;
+  if(total<=0){toast('저금통이 비어있어요!');return;}
+  const rounded=Math.round(total);
+  const amt=prompt(`출금할 보석 수를 입력하세요\n(저금통: 🏦${rounded} (원금 ${S.bank} + 이자 ${Math.round(interest)}))`,String(rounded));
+  if(!amt)return;
+  const n=Math.min(parseInt(amt)||0,rounded);
+  if(n<=0)return;
+  // 이자 정산 후 출금
+  S.bank=Math.round(total)-n;
+  S.coins+=n;
+  S.bankTime=S.bank>0?Date.now():0;
+  saveState();render();
+  toast(`💎${n} 출금 완료!`);
+}
+function doRankUp(){
+  const allDone=COLS.every(col=>S.unlocked[col.id]?.size===9);
+  if(!allDone||S.rank>=5)return;
+  if(!confirm(`🏆 ${S.rank}단계 → ${S.rank+1}단계 승급!\n\n컬렉션과 퀴즈 진행이 초기화됩니다.\n열쇠 가격: 💎${S.keyPrice} → 💎${S.keyPrice+20}\n\n승급하시겠어요?`))return;
+  S.rank+=1;
+  S.keyPrice+=20;
+  // 초기화: 컬렉션, 퀴즈 진행, 힌트
+  [1,2,3,4,5,6,7,8,9,10].forEach(k=>{S.unlocked[k]=new Set();});
+  S.done=new Set();S.cells={};S.correct=new Set();S.hints=new Set();
+  S.puzzData={};S.selCell=null;S.selWid=null;S.pid=null;
+  S.skillUsed={};S.cheonjiActive=false;
+  // 보석과 열쇠, 저금은 유지
+  saveState();
+  S.screen='home';render();
+  confetti();
+  toast(`🏆 ${S.rank}단계 승급 완료!`);
 }
 function rBnav(){
   const tabs=[
@@ -1061,7 +1129,7 @@ function rHome(){
         <button class="btn btn-ghost btn-full" data-action="go" data-screen="collection">🖼️ 컬렉션</button>
       </div>
     </div>
-    <div class="home-hint">정답 💎10 · 완성 💎50 · 💡힌트 💎5 · 💎40 = 🔑1개</div>
+    <div class="home-hint">정답 💎10 · 완성 💎50 · 💡힌트 💎5 · 💎${S.keyPrice||40} = 🔑1개</div>
   </div>`;
 }
 function rLvContent(){
@@ -1289,7 +1357,11 @@ function rCompOv(){
   </div>`;
 }
 function rShopContent(){
-  const can=S.coins>=40;
+  const price=S.keyPrice||40;
+  const can=S.coins>=price;
+  // 저금 이자 계산
+  const bankInterest=calcBankInterest();
+  const bankTotal=S.bank+bankInterest;
   return`<div class="sec"><div class="sec-title">🛒 상점</div>
     <div class="sh-card">
       <div class="bal-row">
@@ -1298,9 +1370,23 @@ function rShopContent(){
         <div><div class="bal-num" style="color:#059669">🔑 ${S.keys}</div><div class="bal-lab">내 열쇠</div></div>
       </div>
       <button class="btn btn-full" style="${can?'background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 4px 18px rgba(124,58,237,.35);':'background:#e5e7eb;color:#9ca3af;cursor:not-allowed;'}padding:14px;font-size:15px" data-action="buy-key">
-        ${can?'🔑 열쇠 구매 (💎40)':'보석이 부족해요 😢'}
+        ${can?`🔑 열쇠 구매 (💎${price})`:'보석이 부족해요 😢'}
       </button>
       <div class="sh-info">🔑 열쇠 1개로 그림 조각 1개를 열 수 있어요!<br>단어 정답 = 💎10 &nbsp;·&nbsp; 퍼즐 완성 보너스 = 💎50</div>
+    </div>
+    <div class="sh-card" style="margin-top:14px">
+      <div style="text-align:center;font-size:15px;font-weight:900;color:#1e293b;margin-bottom:10px">🏦 보석 저금통</div>
+      <div style="text-align:center;font-size:11px;color:#64748b;margin-bottom:12px">매 시간마다 저금액의 3% 이자가 붙어요!</div>
+      <div class="bal-row">
+        <div><div class="bal-num" style="color:#7c3aed">💎 ${S.coins}</div><div class="bal-lab">지갑</div></div>
+        <div class="bal-arrow">⇌</div>
+        <div><div class="bal-num" style="color:#0369a1">🏦 ${Math.round(bankTotal)}</div><div class="bal-lab">저금통${bankInterest>0?` (+${Math.round(bankInterest)} 이자)`:''}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-full" style="background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;padding:12px;font-size:14px;flex:1" data-action="bank-deposit">💎→🏦 저금</button>
+        <button class="btn btn-full" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:12px;font-size:14px;flex:1" data-action="bank-withdraw">🏦→💎 출금</button>
+      </div>
+      <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">시간당 3% 복리 · 원할 때 원하는 만큼 출금</div>
     </div>
   </div>`;
 }
@@ -1395,6 +1481,15 @@ function _doAction(el,e){
       break;}
     case'use-skill':{
       useSkill(+el.dataset.skill);
+      break;}
+    case'rank-up':{
+      doRankUp();
+      break;}
+    case'bank-deposit':{
+      bankDeposit();
+      break;}
+    case'bank-withdraw':{
+      bankWithdraw();
       break;}
     default:return false;
   }
