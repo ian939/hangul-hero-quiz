@@ -830,19 +830,25 @@ const WBANK={
 // 퍼즐 내 같은 길이 단어들 수집 (다른 퍼즐 포함)
 function getDistractors(ans,len){
   const ansStr=ans.join('');
-  // 같은 퍼즐 내 다른 정답 단어 수집
+  const firstCh=ans[0]; // 정답 첫 글자
   const puzzWords=new Set();
   PZS.forEach(p=>p.words.forEach(w=>{
     if(w.ans.length===len)puzzWords.add(w.ans.join(''));
   }));
   puzzWords.delete(ansStr);
-  // 뱅크에서 같은 길이 단어 가져오기
   const bank=(WBANK[len]||[]).filter(w=>w.length===len&&w!==ansStr);
-  // 퍼즐 단어 + 뱅크 합치기
   const all=[...puzzWords,...bank];
-  // 셔플 후 9개 선택
-  for(let i=all.length-1;i>0;i--){const j=Math.random()*i|0;[all[i],all[j]]=[all[j],all[i]];}
-  return all.slice(0,9);
+  // 첫 글자가 같은 단어 우선 2개 확보 (헷갈리는 보기)
+  const sameFirst=all.filter(w=>w[0]===firstCh);
+  const diff=all.filter(w=>w[0]!==firstCh);
+  for(let a of[sameFirst,diff]){for(let i=a.length-1;i>0;i--){const j=Math.random()*i|0;[a[i],a[j]]=[a[j],a[i]];}}
+  const picked=[...sameFirst.slice(0,2),...diff];
+  // 부족하면 나머지에서 채움
+  const need=9-picked.length;
+  if(need>0)picked.push(...sameFirst.slice(2,2+need));
+  // 최종 셔플 후 9개
+  for(let i=picked.length-1;i>0;i--){const j=Math.random()*i|0;[picked[i],picked[j]]=[picked[j],picked[i]];}
+  return picked.slice(0,9);
 }
 
 // 선택지 생성 (정답 1개 + 오답 9개, 랜덤 섞기)
