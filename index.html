@@ -1400,8 +1400,17 @@ function rShopContent(){
       <div style="text-align:center;font-size:11px;color:#64748b;margin-bottom:12px">매 시간마다 저금액의 3% 이자가 붙어요!</div>
       <div class="bal-row">
         <div><div class="bal-num" style="color:#7c3aed">💎 ${S.coins}</div><div class="bal-lab">지갑</div></div>
-        <div class="bal-arrow">⇌</div>
-        <div><div class="bal-num" style="color:#0369a1">🏦 ${Math.round(bankTotal)}</div><div class="bal-lab">저금통${bankInterest>0?` (+${Math.round(bankInterest)} 이자)`:''}</div></div>
+        <div class="bal-arrow">→</div>
+        <div>
+          <div class="bal-num" style="color:#0369a1">🏦 ${Math.round(bankTotal)}</div>
+          <div class="bal-lab">저금통</div>
+          <div style="margin-top:6px;background:#f0f9ff;border-radius:8px;padding:6px 10px;text-align:left">
+            <div style="font-size:11px;color:#64748b;display:flex;justify-content:space-between"><span>원금</span><span style="color:#0369a1;font-weight:700">💎 ${S.bank}</span></div>
+            <div style="font-size:11px;color:#64748b;display:flex;justify-content:space-between;margin-top:3px"><span>이자 (+3%/h)</span><span style="color:#059669;font-weight:700">${bankInterest>0?'+':''}💎 ${Math.round(bankInterest)}</span></div>
+            <div style="height:1px;background:#e2e8f0;margin:4px 0"></div>
+            <div style="font-size:12px;font-weight:900;display:flex;justify-content:space-between"><span>합계</span><span style="color:#0369a1">💎 ${Math.round(bankTotal)}</span></div>
+          </div>
+        </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn btn-full" style="background:linear-gradient(135deg,#0369a1,#0284c7);color:#fff;padding:12px;font-size:14px;flex:1" data-action="bank-deposit">💎→🏦 저금</button>
